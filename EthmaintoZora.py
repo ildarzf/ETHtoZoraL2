@@ -24,6 +24,7 @@ proc_gETH_min = 20 # от 20 процентов аккаунта слать в �
 proc_gETH_max = 25 # 25 %
 sleep_min = 60  # Спим между кошельками
 sleep_max = 140
+Gwei = 16  # если газ выше уходим в ожидание
 ############################################################################################################################
 
 def bridge():
@@ -33,44 +34,56 @@ def bridge():
     BaseBridge = web3.to_checksum_address('0x1a0ad011913A150f69f6A19DF447A0CfD9551054') # contract ZORA deposit
     bridge = web3.eth.contract(address=BaseBridge, abi=bridge_abi)
 
+
     num = 0
     for wall in wallets:
-        num = num+1
-        key = wall
-        account = web3.eth.account.from_key(key).address
-        nonce = web3.eth.get_transaction_count(account)
-        gas_price = web3.eth.gas_price
-        proc_gETH = round(random.uniform(proc_gETH_min, proc_gETH_max), 3)
-        balance_gas = web3.eth.get_balance(account)
-        balance_gas_2dec = balance_gas / (10**18)
-        value_2dec = round(balance_gas_2dec * (proc_gETH / 100),6)
-        _value = int(value_2dec * (10 ** 18))
+      while True:
+        current_gas_price = web3.eth.gas_price
+        current_gas_price_gwei = web3.from_wei(current_gas_price, 'gwei')
+        #print('GWEI', round(current_gas_price_gwei))
+        if current_gas_price_gwei <= Gwei:
+            num = num+1
+            key = wall
+            account = web3.eth.account.from_key(key).address
+            nonce = web3.eth.get_transaction_count(account)
+            gas_price = web3.eth.gas_price
+            proc_gETH = round(random.uniform(proc_gETH_min, proc_gETH_max), 3)
+            balance_gas = web3.eth.get_balance(account)
+            balance_gas_2dec = balance_gas / (10**18)
+            value_2dec = round(balance_gas_2dec * (proc_gETH / 100),6)
 
-        _to = account
-        _gasLimit = 100000
-        _isCreation = False
-        data_k = ''
-        _data = bytes(data_k, 'ascii')
-        gasLimit = web3.eth.estimate_gas(
-            {'to': Web3.to_checksum_address(account), 'from': Web3.to_checksum_address(account),
-             'value': web3.to_wei(0.0001, 'ether')}) + random.randint(10000, 30000)
-        tx = bridge.functions.depositTransaction(_to, _value, _gasLimit, _isCreation, _data
-            ).build_transaction({
-            'value': _value,
-            'from': account,
-            'gas': int(gasLimit*3),
-            'gasPrice': int(gas_price),  # газ который возвращает  рпс слишком низкий  не принимает стоит транза при мультипликаторе 3 пролетает сразу
-            'nonce': web3.eth.get_transaction_count(account),
-            })
-        signed_tx = web3.eth.account.sign_transaction(tx, key)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        account = web3.eth.account.from_key(key).address
-        print(num, account, key)
-        print(f'Transaction hash: https://etherscan.io/tx/{tx_hash.hex()}')
-        print('Waiting for receipt...')
-        tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-        print('Отправил')
-    sleeping(sleep_min, sleep_max)  # задержка между кошельками
+            _value = int(value_2dec * (10 ** 18))
+            _to = account
+            _gasLimit = 100000
+            _isCreation = False
+            data_k = ''
+            _data = bytes(data_k, 'ascii')
+            gasLimit = web3.eth.estimate_gas(
+                {'to': Web3.to_checksum_address(account), 'from': Web3.to_checksum_address(account),
+                 'value': web3.to_wei(0.0001, 'ether')}) + random.randint(10000, 30000)
+            tx = bridge.functions.depositTransaction(_to, _value, _gasLimit, _isCreation, _data
+                ).build_transaction({
+                'value': _value,
+                'from': account,
+                'gas': int(gasLimit*3),
+                'gasPrice': int(gas_price),
+                'nonce': web3.eth.get_transaction_count(account),
+                })
+            signed_tx = web3.eth.account.sign_transaction(tx, key)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            account = web3.eth.account.from_key(key).address
+            print(num, account, key)
+            print(f'Transaction hash: https://etherscan.io/tx/{tx_hash.hex()}')
+            print('Waiting for receipt...')
+            tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+            print('Отправил')
+            break
+        else:
+            print('GWEI', round(current_gas_price_gwei, 1))
+            print('Ждем нормальный газ')
+            sleeping(sleep_min,sleep_max)    # спим и снова проверяем газ
+
+      sleeping(sleep_min, sleep_max)  # задержка между кошельками
 
 
 if __name__ == '__main__':
