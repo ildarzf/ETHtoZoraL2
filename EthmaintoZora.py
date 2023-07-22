@@ -21,18 +21,19 @@ def intToDecimal(qty, decimal):
 
 
 ########################### ИЗМЕНЯЕМЫЕ ПАРАМЕТРЫ ##############################################################################
-tokenID = 7 # ИД НФТ который надо минтит Минтим НФТ стандарта 1155
+tokenID = random.randint(1, 7) # ИД НФТ который надо минтит Минтим НФТ стандарта 1155
 
 Quant = 1   # количество  одинаковых НФТ минтить на один кошелек
-DEP_FROM = 0.0021# от в ETH
-DEP_TO = 0.0035 # до в ETH
+DEP_FROM = 0.00251# от в ETH
+DEP_TO = 0.00301 # до в ETH
 sleep_min = 60  # Спим между кошельками
 sleep_max = 140
 sleep_action_min = 10   # Спим между действиями
 sleep_action_max = 25
-time_to_conf = 260 #ожидание подтверждения транзакций
-Gwei = 20  # если газ выше уходим в ожидание
-rpc_zora = "https://rpc.zora.co/"   # Нода Майннет Басе
+time_to_conf = 360 #ожидание подтверждения транзакций
+Gwei = 30  # если газ выше уходим в ожидание
+depos_if = 0.001 # Депозитить если в сети Zora меньше этого значения в ETH иначе переходим к минту
+rpc_zora = "https://rpc.zora.co/"   # Нода Зора
 rpc_eth = "https://rpc.ankr.com/eth"    # Нода Эфира
 shuffle = True      # False / True Перемешивать кошельки или нет
 mint_nft = True     # False / True Минтить НФТ  или нет
@@ -50,7 +51,7 @@ def wait_dep(private_key):
             logger.success(f'Депозит поступил {web3.from_wei(balance_gas, "ether")}')
             break
         else:
-            logger.info(f'Ждем поступления средств. Спим 30 секунд')
+            logger.info(f'Ждем поступления средств. Сплю 30 секунд')
             sleep_indicator(30)
     return balance_gas
 
@@ -151,23 +152,23 @@ def minter():
             account = web3.eth.account.from_key(private_key).address
             logger.info(f'{num}  -  {account}')
             balance_gas = web3.eth.get_balance(account)
-            if web3.from_wei(balance_gas, "ether") == 0:
-                web3 = Web3(Web3.HTTPProvider(rpc_eth))
-                while True:
-                    current_gas_price = web3.eth.gas_price
-                    current_gas_price_gwei = web3.from_wei(current_gas_price, 'gwei')
-                    if round(current_gas_price_gwei, 1) <= Gwei:
-                        deposit(private_key)  # Депозит в майннет Басе
-                        if mint_nft:
+            web3 = Web3(Web3.HTTPProvider(rpc_eth))
+            while True:
+                current_gas_price = web3.eth.gas_price
+                current_gas_price_gwei = web3.from_wei(current_gas_price, 'gwei')
+                if round(current_gas_price_gwei, 1) <= Gwei:
+                    if web3.from_wei(balance_gas, "ether") <= depos_if:
+                       deposit(private_key)  # Депозит в Зора
+                       if mint_nft:
                             wait_dep(private_key)  # Ждем поступления
-                        break
                     else:
-                        logger.info(f'GWEI {round(current_gas_price_gwei, 1)}  Ждем Gwei ниже {Gwei}  30 секунд')
-                        sleep_indicator(30)
-            else:
-                logger.info(f'На счету  {web3.from_wei(balance_gas, "ether")}  ETH')
-                if mint_nft == False:
-                    deposit(private_key)
+                        logger.info(f'На счету  {web3.from_wei(balance_gas, "ether")}  ETH')
+                        if mint_nft == False:
+                            deposit(private_key)
+                    break
+                else:
+                    logger.info(f'GWEI {round(current_gas_price_gwei, 1)}  Ждем Gwei ниже {Gwei}. Сплю 30 секунд')
+                    sleep_indicator(30)
             sleep_indicator(random.randint(sleep_action_min, sleep_action_max))
             if mint_nft:
                 mintnft(private_key)  # Минт
