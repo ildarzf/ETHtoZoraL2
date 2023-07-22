@@ -1,5 +1,5 @@
 # ETHtoZoraL2 and Mint NFT (ERC-1152 standart)
-ETH Mainnet to ZORA L2
+ETH Mainnet to ZORA L2 and Mint NFT (ERC-1152 standart)
 
 Выводит ETH через официальный мост в ZORA L2. Если в сети Zora не нулевой баланс то депозит не будет сделан.
 Затем минтит фри НФТ . Плата только за минт комиссия Zora. (около 1,5$)
